@@ -13,7 +13,7 @@ def info(payload: dict, timeout: int = 20):
     req = urllib.request.Request(
         INFO_URL,
         data=body,
-        headers={"Content-Type": "application/json", "User-Agent": "opportunity-lab/0.1"},
+        headers={"Content-Type": "application/json", "User-Agent": "opportunitylab/0.1"},
     )
     with urllib.request.urlopen(req, timeout=timeout) as response:
         return json.loads(response.read())
@@ -131,4 +131,3 @@ def executable_close_prices(
     if spot_sell is None or perp_buy is None:
         return None
     return spot_sell, perp_buy
-

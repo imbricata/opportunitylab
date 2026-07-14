@@ -1,14 +1,14 @@
 [Unit]
-Description=Opportunity Lab fake-money research daemon
+Description=opportunitylab fake-money research daemon
 After=network-online.target
 Wants=network-online.target
 
 [Service]
 Type=simple
 User=pumpwatch
-WorkingDirectory=/home/pumpwatch/opportunity-lab
+WorkingDirectory=/home/pumpwatch/opportunitylab
 EnvironmentFile=/home/pumpwatch/pumpwatch/.env
-EnvironmentFile=-/home/pumpwatch/opportunity-lab/.env
+EnvironmentFile=-/home/pumpwatch/opportunitylab/.env
 ExecStart=/usr/bin/python3 -m opportunity_lab.main run
 Restart=always
 RestartSec=15
@@ -17,7 +17,7 @@ NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=read-only
-ReadWritePaths=/home/pumpwatch/opportunity-lab
+ReadWritePaths=/home/pumpwatch/opportunitylab
 InaccessiblePaths=/home/pumpwatch/pumpwatch/wallet.json
 
 [Install]

@@ -1,28 +1,19 @@
-# Opportunity Lab
+# opportunitylab
 
-Fake-money scanner for spot/perpetual funding opportunities.
+Fake-money scanner for crypto funding opportunities.
 
-- Reads public Hyperliquid production data.
-- Simulates executable depth, spread, fees, funding, and exits.
-- Stores observations and virtual trades in SQLite.
-- Uses no wallet, signer, trading endpoint, or exchange credential.
-- Calls `gpt-5.4-nano` only after deterministic screening.
-- Retains no model conversation and uses no model web search.
-- Limits AI to 10 attempts and an estimated $0.03 per Oslo day.
+It reads live Hyperliquid data, simulates trades with a $100 virtual balance,
+and uses AI to review shortlisted opportunities. It cannot place real trades.
 
-The scanner runs every five minutes. A same-coin AI review waits one hour
-unless rank rises 10 points or projected net profit rises at least 50% and
-$0.03.
+## Commands
 
 ```bash
 python3 -m opportunity_lab.main scan
 python3 -m opportunity_lab.main status
-python3 -m opportunity_lab.main cost
 python3 -m opportunity_lab.main run
 python3 -m unittest discover -s tests -v
 ```
 
-Configuration is documented in `opportunity-lab.env.example`. Telegram accepts
-`/status`, `/cost`, and `/candidates` and sends a daily 20:00 Oslo digest.
+Telegram: `/status`, `/cost`, `/candidates`.
 
-The rank is a triage score, not a probability of profit.
+Configuration: `opportunitylab.env.example`.

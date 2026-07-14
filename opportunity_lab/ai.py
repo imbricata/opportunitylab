@@ -87,7 +87,7 @@ def review(cfg: Config, evidence: dict) -> tuple[dict, dict]:
         headers={
             "Authorization": f"Bearer {cfg.openai_api_key}",
             "Content-Type": "application/json",
-            "User-Agent": "opportunity-lab/0.1",
+            "User-Agent": "opportunitylab/0.1",
         },
     )
     started = time.time()
@@ -108,4 +108,3 @@ def review(cfg: Config, evidence: dict) -> tuple[dict, dict]:
         cfg.ai_model, meta["input_tokens"], meta["output_tokens"]
     )
     return result, meta
-
