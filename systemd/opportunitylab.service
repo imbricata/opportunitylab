@@ -1,5 +1,5 @@
 [Unit]
-Description=opportunitylab fake-money research daemon
+Description=opportunitylab fake money research daemon
 After=network-online.target
 Wants=network-online.target
 
