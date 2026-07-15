@@ -13,7 +13,14 @@ from .config import CFG, ROOT
 from .db import connect, ensure_initial_balance, get_setting, set_setting
 from .fastlane import PriceStream, scan_fast
 from .lab import scan_all
-from .reporting import candidates_text, cost_text, digest_text, research_text, status_text
+from .reporting import (
+    candidates_text,
+    cost_text,
+    digest_text,
+    help_text,
+    research_text,
+    status_text,
+)
 from .telegram import Telegram
 
 
@@ -114,6 +121,8 @@ def daemon():
                 log.info("telegram request: %s", command)
                 if text.startswith("/cost"):
                     tg.send(cost_text(db))
+                elif text.startswith("/help") or text.startswith("/start"):
+                    tg.send(help_text())
                 elif text.startswith("/research"):
                     tg.send(research_text(db))
                 elif text.startswith("/candidates"):

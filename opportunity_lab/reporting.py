@@ -6,6 +6,19 @@ import time
 from .db import balance
 
 
+def help_text() -> str:
+    return "\n".join(
+        [
+            "🧪 Opportunity Lab — FAKE MONEY",
+            "/status — virtual cash, positions and PnL",
+            "/candidates — strongest recent opportunities",
+            "/research — evidence and strategy results",
+            "/cost — OpenAI spending",
+            "/help — this command list",
+        ]
+    )
+
+
 def status_text(db) -> str:
     cash = balance(db)
     open_rows = db.execute(

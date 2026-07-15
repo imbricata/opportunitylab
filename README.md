@@ -19,8 +19,8 @@ trading code. A wallet is not required.
   and CLOB books near expiry. The opening Chainlink boundary is mandatory; a
   substitute spot price is never used. This international-market lane is
   simulation and measurement only.
-- Hyperliquid funding: the original spot-long/perpetual-short paper strategy,
-  retained as an independent benchmark.
+- Hyperliquid funding: legacy benchmark code remains available but is disabled
+  by default so this deployment focuses on prediction-market research.
 
 All prices include modeled taker fees. Paper sizing is constrained by displayed
 depth, available virtual cash, per-trade limits, and concurrent-position limits.
@@ -46,7 +46,7 @@ python3 -m venv .venv
 .venv/bin/python -m unittest discover -s tests -v
 ```
 
-Telegram commands: `/status`, `/cost`, `/candidates`, `/research`.
+Telegram commands: `/status`, `/cost`, `/candidates`, `/research`, `/help`.
 
 Configuration is documented in `opportunitylab.env.example`. The service adds
 tables to the existing database in place. Copy the database before deployment

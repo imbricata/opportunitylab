@@ -33,7 +33,7 @@ class Config:
     max_hold_hours: float = _float("LAB_MAX_HOLD_HOURS", 24.0)
 
     # Strategy switches. Every execution path remains simulated.
-    enable_funding: bool = _bool("LAB_ENABLE_FUNDING", True)
+    enable_funding: bool = _bool("LAB_ENABLE_FUNDING", False)
     enable_kalshi: bool = _bool("LAB_ENABLE_KALSHI", True)
     enable_polymarket_us: bool = _bool("LAB_ENABLE_POLYMARKET_US", True)
     enable_news: bool = _bool("LAB_ENABLE_NEWS", True)
