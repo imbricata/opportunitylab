@@ -33,12 +33,19 @@ def _today_start(cfg: Config) -> float:
 
 
 def _ai_budget_available(db, cfg: Config) -> bool:
-    row = db.execute(
+    old = db.execute(
         "SELECT COUNT(*), COALESCE(SUM(estimated_cost_usd),0) FROM ai_usage "
         "WHERE ts>=?",
         (_today_start(cfg),),
     ).fetchone()
-    return row[0] < cfg.max_ai_calls_per_day and row[1] < cfg.max_ai_usd_per_day
+    new = db.execute(
+        "SELECT COUNT(*), COALESCE(SUM(estimated_cost_usd),0) FROM ai_calls_v2 WHERE ts>=?",
+        (_today_start(cfg),),
+    ).fetchone()
+    return (
+        int(old[0]) + int(new[0]) < cfg.max_ai_calls_per_day
+        and float(old[1]) + float(new[1]) < cfg.max_ai_usd_per_day
+    )
 
 
 def _recent_funding(db, coin: str, limit: int = 12) -> list[float]:

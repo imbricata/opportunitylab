@@ -11,12 +11,23 @@ from zoneinfo import ZoneInfo
 
 from .config import CFG, ROOT
 from .db import connect, ensure_initial_balance, get_setting, set_setting
-from .engine import scan
-from .reporting import candidates_text, cost_text, digest_text, status_text
+from .fastlane import PriceStream, scan_fast
+from .lab import scan_all
+from .reporting import candidates_text, cost_text, digest_text, research_text, status_text
 from .telegram import Telegram
 
 
 log = logging.getLogger("opportunity_lab")
+
+
+def _next_broad_scan(now: float | None = None) -> float:
+    """Align slow work just after a five-minute boundary.
+
+    This keeps its network/AI latency away from the BTC market's final window,
+    while the independent RTDS thread still captures the opening oracle tick.
+    """
+    now = time.time() if now is None else now
+    return (int(now) // 300 + 1) * 300 + 5
 
 
 def _db():
@@ -26,12 +37,12 @@ def _db():
 
 
 def run_scan(db, tg: Telegram, notify: bool = True):
-    result = scan(db, CFG)
+    result = scan_all(db, CFG)
     log.info("scan complete: %s", result)
     if notify:
         for message in result.get("notable", []):
             tg.send(message)
-        if result["opened"] or result["closed"]:
+        if result["paper_opened"] or result["paper_closed"]:
             tg.send(status_text(db))
     return result
 
@@ -41,6 +52,10 @@ def daemon():
     tg = Telegram(CFG.telegram_bot_token, CFG.telegram_chat_id)
     offset = int(get_setting(db, "telegram_offset", 0))
     next_scan = 0.0
+    next_fast = 0.0
+    price_stream = PriceStream()
+    if CFG.enable_fast_btc:
+        price_stream.start()
     running = True
 
     def stop(*_):
@@ -55,10 +70,22 @@ def daemon():
         if now >= next_scan:
             try:
                 run_scan(db, tg)
-                next_scan = now + CFG.scan_interval_seconds
+                next_scan = _next_broad_scan()
             except Exception:
                 log.exception("scan failed")
-                next_scan = now + min(60, CFG.scan_interval_seconds)
+                next_scan = min(time.time() + 60, _next_broad_scan())
+
+        if now >= next_fast:
+            try:
+                fast_result = scan_fast(db, CFG, price_stream)
+                if fast_result.get("state") not in {"observing", "sampled"}:
+                    log.info("fast lane: %s", fast_result)
+                for message in fast_result.get("notable", []):
+                    tg.send(message)
+                next_fast = now + max(1.0, CFG.fast_poll_seconds)
+            except Exception:
+                log.exception("fast lane failed")
+                next_fast = now + 10
 
         local = datetime.now(ZoneInfo(CFG.timezone))
         digest_day = get_setting(db, "last_digest_day")
@@ -72,9 +99,10 @@ def daemon():
 
         try:
             if not tg.enabled:
-                time.sleep(min(20, max(1, next_scan - time.time())))
+                next_due = min(next_scan, next_fast)
+                time.sleep(min(3, max(0.25, next_due - time.time())))
                 continue
-            for update in tg.updates(offset, timeout=20):
+            for update in tg.updates(offset, timeout=1):
                 offset = update["update_id"] + 1
                 set_setting(db, "telegram_offset", offset)
                 db.commit()
@@ -86,6 +114,8 @@ def daemon():
                 log.info("telegram request: %s", command)
                 if text.startswith("/cost"):
                     tg.send(cost_text(db))
+                elif text.startswith("/research"):
+                    tg.send(research_text(db))
                 elif text.startswith("/candidates"):
                     tg.send(candidates_text(db))
                 else:
@@ -94,6 +124,7 @@ def daemon():
         except Exception:
             log.exception("telegram poll failed")
             time.sleep(5)
+    price_stream.stop()
     db.close()
 
 
@@ -115,7 +146,10 @@ def configure_key():
 
 def main():
     parser = argparse.ArgumentParser(description="Fake-money opportunity research")
-    parser.add_argument("command", choices=["scan", "digest", "status", "cost", "candidates", "run", "configure-key"])
+    parser.add_argument(
+        "command",
+        choices=["scan", "digest", "status", "cost", "candidates", "research", "run", "configure-key"],
+    )
     args = parser.parse_args()
     logging.basicConfig(
         level=logging.INFO,
@@ -139,6 +173,8 @@ def main():
         print(cost_text(db))
     elif args.command == "candidates":
         print(candidates_text(db))
+    elif args.command == "research":
+        print(research_text(db))
     db.close()
 
 
