@@ -1,0 +1,10 @@
+[Unit]
+Description=Check Opportunity Lab every five minutes
+
+[Timer]
+OnBootSec=90s
+OnUnitActiveSec=5min
+Persistent=true
+
+[Install]
+WantedBy=timers.target

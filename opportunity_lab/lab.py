@@ -68,9 +68,12 @@ def _record_ai(db, cfg: Config, purpose: str, status: str, reference: str, usage
     )
 
 
-def _cache_key(purpose: str, evidence: dict) -> str:
+def _cache_key(purpose: str, evidence: dict, cfg: Config | None = None) -> str:
     raw = json.dumps(evidence, sort_keys=True, separators=(",", ":")).encode()
-    return hashlib.sha256(purpose.encode() + b"\0" + raw).hexdigest()
+    identity = (
+        f"{purpose}\0{ai.AI_REVIEW_VERSION}\0{cfg.ai_model if cfg else ''}\0"
+    ).encode()
+    return hashlib.sha256(identity + raw).hexdigest()
 
 
 def _equivalence_review(db, cfg: Config, opportunity: Opportunity):
@@ -94,20 +97,20 @@ def _equivalence_review(db, cfg: Config, opportunity: Opportunity):
         "yes_venue": source.get("yes_venue"),
         "no_venue": source.get("no_venue"),
     }
-    key = _cache_key("contract_equivalence", evidence)
+    key = _cache_key("contract_equivalence", evidence, cfg)
     cached = ai_cache_get(db, key)
     if cached is not None:
         return cached, True
     if not cfg.openai_api_key or not _ai_budget_available(db, cfg):
         return None, False
     try:
-        result, usage = ai.review_equivalence(cfg, evidence)
-        _record_ai(db, cfg, "contract_equivalence", "ok", opportunity.fingerprint, usage)
+        result, _usage = ai.review_equivalence(
+            db, cfg, evidence, reference=opportunity.fingerprint
+        )
         ai_cache_put(db, key, "contract_equivalence", result, 7 * 86400)
         return result, False
     except Exception as exc:
         log.exception("contract equivalence review failed")
-        _record_ai(db, cfg, "contract_equivalence", "error", opportunity.fingerprint, error=exc)
         return None, False
 
 
@@ -220,12 +223,12 @@ def _scan_news(db, cfg: Config, markets: list[Market]) -> tuple[int, int, list[s
                 break
             reference = f"{market.venue}:{market.market_id}:{item.item_id[:12]}"
             try:
-                result, usage = ai.review_news(cfg, evidence)
-                _record_ai(db, cfg, "news_market", "ok", reference, usage)
+                result, _usage = ai.review_news(
+                    db, cfg, evidence, reference=reference
+                )
                 ai_cache_put(db, key, "news_market", result, 2 * 86400)
             except Exception as exc:
                 log.exception("news review failed")
-                _record_ai(db, cfg, "news_market", "error", reference, error=exc)
                 continue
         opportunity = _news_opportunity(cfg, market, item, result)
         if opportunity is None:

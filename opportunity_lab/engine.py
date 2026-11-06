@@ -338,17 +338,10 @@ def scan(db, cfg: Config) -> dict:
             )
             continue
         try:
-            decision, usage = ai.review(cfg, evidence)
-            reviewed += 1
-            db.execute(
-                """INSERT INTO ai_usage
-                (ts,model,input_tokens,output_tokens,estimated_cost_usd,candidate_id,status)
-                VALUES(?,?,?,?,?,?,'ok')""",
-                (
-                    time.time(), cfg.ai_model, usage["input_tokens"],
-                    usage["output_tokens"], usage["estimated_cost_usd"], candidate_id,
-                ),
+            decision, _usage = ai.review(
+                db, cfg, evidence, reference=f"funding:{pair.coin}:{candidate_id}"
             )
+            reviewed += 1
             db.execute(
                 """UPDATE candidates SET ai_decision=?,ai_confidence=?,ai_json=?,
                 state=?,reason=? WHERE id=?""",
@@ -369,10 +362,6 @@ def scan(db, cfg: Config) -> dict:
             )
         except Exception as exc:
             log.exception("AI review failed for %s", pair.coin)
-            db.execute(
-                "INSERT INTO ai_usage(ts,model,candidate_id,status,error) VALUES(?,?,?,'error',?)",
-                (time.time(), cfg.ai_model, candidate_id, repr(exc)[:1000]),
-            )
             db.execute(
                 "UPDATE candidates SET state='awaiting_ai',reason='AI call failed' WHERE id=?",
                 (candidate_id,),

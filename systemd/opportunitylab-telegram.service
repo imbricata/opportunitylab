@@ -1,0 +1,25 @@
+[Unit]
+Description=Opportunity Lab minimal Telegram status worker
+After=network-online.target opportunitylab.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=opportunitylab
+WorkingDirectory=/opt/opportunitylab
+EnvironmentFile=-/etc/opportunitylab/common.env
+EnvironmentFile=/opt/opportunitylab/.telegram.env
+ExecStart=/opt/opportunitylab/.venv/bin/python -m opportunity_lab.main telegram-run
+Restart=always
+RestartSec=15
+MemoryMax=140M
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/opt/opportunitylab
+InaccessiblePaths=-/opt/opportunitylab/.env -/opt/opportunitylab/.live.env
+
+[Install]
+WantedBy=multi-user.target

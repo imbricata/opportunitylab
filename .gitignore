@@ -1,7 +1,15 @@
 .env
+.live.env
+.telegram.env
 *.db
 *.db-shm
 *.db-wal
 __pycache__/
 *.pyc
 .venv/
+.pytest_cache/
+.factory-maintenance.lock
+systemd/common.env
+systemd/*.swap
+scripts/promote_*
+scripts/reactivate_*

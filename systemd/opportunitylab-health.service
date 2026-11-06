@@ -1,0 +1,18 @@
+[Unit]
+Description=Opportunity Lab independent health and fail-closed check
+
+[Service]
+Type=oneshot
+User=opportunitylab
+WorkingDirectory=/opt/opportunitylab
+EnvironmentFile=-/etc/opportunitylab/common.env
+ExecStart=/opt/opportunitylab/.venv/bin/python -m opportunity_lab.main healthcheck
+TimeoutStartSec=2min
+MemoryMax=140M
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/opt/opportunitylab
+InaccessiblePaths=-/opt/opportunitylab/.env -/opt/opportunitylab/.live.env -/opt/opportunitylab/.telegram.env

@@ -1,24 +1,28 @@
 [Unit]
-Description=opportunitylab fake money research daemon
+Description=Opportunity Lab BTC V8 live and paper worker
 After=network-online.target
 Wants=network-online.target
 
 [Service]
-Type=simple
-User=pumpwatch
-WorkingDirectory=/home/pumpwatch/opportunitylab
-EnvironmentFile=/home/pumpwatch/pumpwatch/.env
-EnvironmentFile=-/home/pumpwatch/opportunitylab/.env
-ExecStart=/home/pumpwatch/opportunitylab/.venv/bin/python -m opportunity_lab.main run
+Type=notify
+NotifyAccess=main
+User=opportunitylab
+WorkingDirectory=/opt/opportunitylab
+EnvironmentFile=-/etc/opportunitylab/common.env
+EnvironmentFile=-/opt/opportunitylab/.live.env
+ExecStart=/opt/opportunitylab/.venv/bin/python -m opportunity_lab.main run
 Restart=always
 RestartSec=15
-MemoryMax=220M
+WatchdogSec=60
+TimeoutStopSec=30
+MemoryMax=320M
+UMask=0077
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=read-only
-ReadWritePaths=/home/pumpwatch/opportunitylab
-InaccessiblePaths=/home/pumpwatch/pumpwatch/wallet.json
+ReadWritePaths=/opt/opportunitylab
+InaccessiblePaths=-/opt/opportunitylab/.env -/opt/opportunitylab/.telegram.env
 
 [Install]
 WantedBy=multi-user.target

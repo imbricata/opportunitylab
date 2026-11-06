@@ -1,0 +1,19 @@
+[Unit]
+Description=Opportunity Lab retention, integrity backup, and database maintenance
+
+[Service]
+Type=oneshot
+User=opportunitylab
+WorkingDirectory=/opt/opportunitylab
+EnvironmentFile=-/etc/opportunitylab/common.env
+ExecStart=/usr/bin/flock --nonblock --conflict-exit-code 0 /opt/opportunitylab/.factory-maintenance.lock /opt/opportunitylab/.venv/bin/python -m opportunity_lab.main maintenance
+TimeoutStartSec=30min
+MemoryMax=220M
+Nice=15
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/opt/opportunitylab
+InaccessiblePaths=-/opt/opportunitylab/.env -/opt/opportunitylab/.live.env -/opt/opportunitylab/.telegram.env

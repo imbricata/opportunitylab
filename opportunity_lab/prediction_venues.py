@@ -152,6 +152,118 @@ class KalshiPublic:
         return parsed
 
 
+class PolymarketPublic:
+    """Public, paper-only international Polymarket discovery connector."""
+
+    venue = "polymarket"
+    base = "https://gamma-api.polymarket.com"
+
+    def __init__(self, cfg: Config):
+        self.cfg = cfg
+
+    @staticmethod
+    def _json_array(value) -> list:
+        if isinstance(value, list):
+            return value
+        try:
+            parsed = json.loads(value or "[]")
+            return parsed if isinstance(parsed, list) else []
+        except (TypeError, json.JSONDecodeError):
+            return []
+
+    def fetch_markets(self) -> list[Market]:
+        params = urllib.parse.urlencode(
+            {
+                "active": "true", "closed": "false", "order": "volume24hr",
+                "ascending": "false",
+                "limit": min(500, max(1, self.cfg.polymarket_market_limit)),
+                "offset": 0,
+            }
+        )
+        payload = _get_json(f"{self.base}/markets?{params}")
+        rows = payload if isinstance(payload, list) else []
+        return [market for raw in rows if (market := self._parse_market(raw))]
+
+    def _parse_market(self, raw: dict) -> Market | None:
+        market_id = raw.get("id")
+        if not market_id or not raw.get("enableOrderBook", False):
+            return None
+        outcomes = [
+            str(value).strip().lower()
+            for value in self._json_array(raw.get("outcomes"))
+        ]
+        prices = [_price(value) for value in self._json_array(raw.get("outcomePrices"))]
+        if len(outcomes) < 2 or {"yes", "no"} - set(outcomes):
+            return None
+        yes_index, no_index = outcomes.index("yes"), outcomes.index("no")
+        yes_bid = _price(raw.get("bestBid"))
+        yes_ask = _price(raw.get("bestAsk"))
+        if yes_bid is None and yes_index < len(prices):
+            yes_bid = prices[yes_index]
+        if yes_ask is None and yes_index < len(prices):
+            yes_ask = prices[yes_index]
+        no_bid = 1 - yes_ask if yes_ask is not None else (
+            prices[no_index] if no_index < len(prices) else None
+        )
+        no_ask = 1 - yes_bid if yes_bid is not None else (
+            prices[no_index] if no_index < len(prices) else None
+        )
+        minimum = max(0.0001, _positive(raw.get("orderMinSize"), 5.0))
+        events = raw.get("events") or []
+        event = events[0] if events and isinstance(events[0], dict) else {}
+        schedule = raw.get("feeSchedule") or {}
+        fee_rate = as_float(schedule.get("rate"))
+        if not raw.get("feesEnabled"):
+            fee_rate = 0.0
+        elif fee_rate is None:
+            fee_rate = self.cfg.polymarket_default_fee_coefficient
+        result = ""
+        if raw.get("closed"):
+            for outcome, price in zip(outcomes, prices):
+                if price is not None and price >= 0.999:
+                    result = outcome
+                    break
+        resolution = raw.get("resolutionSource") or event.get("resolutionSource")
+        return Market(
+            venue=self.venue, market_id=str(market_id),
+            event_id=str(event.get("id") or raw.get("conditionId") or market_id),
+            title=raw.get("question") or raw.get("slug") or str(market_id),
+            event_title=event.get("title") or "", rules=raw.get("description") or "",
+            category=raw.get("category") or event.get("category") or "",
+            close_ts=parse_ts(raw.get("endDate") or raw.get("endDateIso")),
+            status="closed" if raw.get("closed") else (
+                "open" if raw.get("active") and raw.get("acceptingOrders") else "inactive"
+            ),
+            result=result, yes_bid=yes_bid, yes_ask=yes_ask,
+            no_bid=no_bid, no_ask=no_ask,
+            # Gamma has BBO but no BBO quantity. Paper sizing is restricted to
+            # one minimum lot rather than inventing executable depth.
+            yes_bid_size=minimum, yes_ask_size=minimum,
+            no_bid_size=minimum, no_ask_size=minimum,
+            volume=_positive(raw.get("volumeNum") or raw.get("volume")),
+            volume_24h=_positive(raw.get("volume24hr")),
+            liquidity=_positive(raw.get("liquidityNum") or raw.get("liquidity")),
+            fee_coefficient=max(0.0, float(fee_rate or 0)), min_order_size=minimum,
+            mutually_exclusive=bool(event.get("negRisk")),
+            collectively_exhaustive=False,
+            source_urls=(str(resolution),) if resolution else (),
+            metadata={
+                "condition_id": raw.get("conditionId") or "",
+                "slug": raw.get("slug") or "",
+                "fees_enabled": bool(raw.get("feesEnabled")),
+                "accepting_orders": bool(raw.get("acceptingOrders")),
+                "depth_source": "gamma_bbo_minimum_lot_only",
+            },
+        )
+
+    def get_market(self, market_id: str, previous: Market | None = None) -> Market | None:
+        raw = _get_json(
+            f"{self.base}/markets/{urllib.parse.quote(str(market_id), safe='')}"
+        )
+        parsed = self._parse_market(raw) if isinstance(raw, dict) else None
+        return parsed or previous
+
+
 class PolymarketUSPublic:
     venue = "polymarket_us"
     base = "https://gateway.polymarket.us"
@@ -307,7 +419,8 @@ def enabled_connectors(cfg: Config):
     connectors = []
     if cfg.enable_kalshi:
         connectors.append(KalshiPublic(cfg))
+    if cfg.enable_polymarket:
+        connectors.append(PolymarketPublic(cfg))
     if cfg.enable_polymarket_us:
         connectors.append(PolymarketUSPublic(cfg))
     return connectors
-

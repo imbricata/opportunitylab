@@ -1,0 +1,22 @@
+[Unit]
+Description=Opportunity Lab paper strategy factory cycle
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=opportunitylab
+WorkingDirectory=/opt/opportunitylab
+EnvironmentFile=-/etc/opportunitylab/common.env
+EnvironmentFile=-/opt/opportunitylab/.env
+ExecStart=/usr/bin/flock --nonblock --conflict-exit-code 0 /opt/opportunitylab/.factory-maintenance.lock /opt/opportunitylab/.venv/bin/python -m opportunity_lab.main factory-cycle
+TimeoutStartSec=10min
+MemoryMax=260M
+Nice=10
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/opt/opportunitylab
+InaccessiblePaths=-/opt/opportunitylab/.live.env -/opt/opportunitylab/.telegram.env

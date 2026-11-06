@@ -1,61 +1,59 @@
 # Opportunity Lab
 
-An autonomous, **paper-money-only** research service for short-lived market
-inefficiencies. It collects public market/news data, applies deterministic
-fee-aware screens, uses OpenAI only for semantic review, and records every
-simulated decision in SQLite.
+Paper-first research and execution engine for short-lived prediction-market inefficiencies. Collects real-time order-book, oracle, and news feeds, applies deterministic fee- and depth-aware screens, uses bounded LLM calls strictly for semantic contract review, and manages an immutable strategy lifecycle in SQLite.
 
-It has no private-key, order-signing, deposit, withdrawal, or authenticated
-trading code. A wallet is not required.
+## Architecture & Lanes
 
-## Research lanes
+- **Short-Horizon Terminal Lane (Polymarket CLOB + Chainlink + Spot):**
+  - Observes rolling Chainlink settlement streams alongside a live L2 CLOB WebSocket book and independent spot feeds (Coinbase, Kraken).
+  - Models rolling-window settlement mechanics (TWAP projection / oracle-conditioned fair value) and simulates delayed-FOK execution walking full ask depth with taker fees and latency penalties.
+  - Fails closed when book age, cross-feed agreement, token identity verification, or depth cushions are violated.
+- **Cross-Venue & Structural Arbitrage Screening:**
+  - Scans Polymarket, Kalshi, and Polymarket US public APIs for binary-complement mispricing, mutually exclusive baskets, threshold violations, and cross-venue contract equivalents.
+- **News & Semantic Review:**
+  - Deterministic local keyword/liquidity filter over RSS/Atom feeds before invoking structured-output LLM review against exact market resolution rules. AI never receives direct execution authority and is hard-capped by a daily token/USD reservation budget.
+- **Autonomous Strategy Factory:**
+  - Registers immutable strategy specifications, replays challengers on historical delayed-FOK windows, tracks out-of-sample forward paper cohorts, and enforces sample-size, ROI, profit-factor, and drawdown gates before promotion.
 
-- Prediction-market structure: binary-complement mispricing, mutually
-  exclusive NO baskets, threshold implications, and AI-audited cross-venue
-  equivalents across Kalshi and Polymarket US public APIs.
-- News reaction: RSS/Atom collection, local keyword filtering, then a capped AI
-  review against the exact market rules. AI never receives authority to trade.
-- BTC five-minute fast lane: observes Polymarket's public Chainlink RTDS stream
-  and CLOB books near expiry. The opening Chainlink boundary is mandatory; a
-  substitute spot price is never used. This international-market lane is
-  simulation and measurement only.
-- Hyperliquid funding: legacy benchmark code remains available but is disabled
-  by default so this deployment focuses on prediction-market research.
+## Risk & Operational Isolation
 
-All prices include modeled taker fees. Paper sizing is constrained by displayed
-depth, available virtual cash, per-trade limits, and concurrent-position limits.
-Missing data causes a skipped trade, not an invented value.
+- **Paper-First Default:** Live execution is disabled unless explicit confirmation phrases, preflight checks (balance, allowance, open-order reconciliation, geoblock), and cohort risk gates pass.
+- **Drawdown-Tapered Sizing & Circuit Breakers:** Live cohorts use reconstructed strategy-equity curves (immune to deposit/withdrawal distortion), tapering risk tiers across drawdown thresholds with automatic circuit breakers and strategy quarantine.
+- **Least-Privilege Process Split (`systemd/`):**
+  - Execution worker receives wallet credentials (`0600`) with `InaccessiblePaths` blocking AI/Telegram secrets.
+  - Factory worker receives the OpenAI key with no wallet access.
+  - Telegram status worker and health/maintenance timers run isolated from the decision path.
 
-## Cost design
+## Repository Layout
 
-Market collection and screening use no AI tokens. SQLite holds long-term factual
-memory. AI calls use structured outputs, `store: false`, low reasoning effort,
-stable prompts for prompt-cache reuse, semantic result caching, and daily call
-and dollar caps. The default model is `gpt-5.6-luna`.
+```text
+opportunity_lab/
+  fastlane.py           # Real-time CLOB WebSocket, Chainlink TWAP/spot streams, FOK fill model
+  live.py               # Preflight checks, CLOB order signing, cohort risk & circuit breakers
+  factory.py            # Immutable strategy specs, forward-cohort evaluation, promotion gates
+  automation.py         # Bounded parameter challenger generation & lifecycle automation
+  prediction_venues.py  # Polymarket, Kalshi, and cross-venue structural scanners
+  ai.py                 # Structured-output semantic contract review & daily cost reservation
+  db.py                 # SQLite schema, ledgers, cohorts, and atomic state transitions
+  maintenance.py        # Integrity backups, retention pruning, and health checks
+scripts/                # Offline TWAP/L2 backtests, book diagnostics, and calibration audits
+systemd/                # Hardened least-privilege service and timer units
+tests/                  # Unit & integration test suite (core, factory lifecycle, research models)
+```
 
-## Commands
+## Quick Start
 
 ```bash
 python3 -m venv .venv
-.venv/bin/pip install -r requirements.txt
+.venv/bin/pip install -r requirements.txt -r requirements-dev.txt
+
+# Run test suite
+PYTHONPATH=. .venv/bin/python -m pytest -q
+
+# CLI entrypoints (paper mode by default; see opportunitylab.env.example)
 .venv/bin/python -m opportunity_lab.main scan
 .venv/bin/python -m opportunity_lab.main status
-.venv/bin/python -m opportunity_lab.main cost
 .venv/bin/python -m opportunity_lab.main research
+.venv/bin/python -m opportunity_lab.main factory-cycle
 .venv/bin/python -m opportunity_lab.main run
-.venv/bin/python -m unittest discover -s tests -v
 ```
-
-Telegram commands: `/status`, `/cost`, `/candidates`, `/research`, `/help`.
-
-Configuration is documented in `opportunitylab.env.example`. The service adds
-tables to the existing database in place. Copy the database before deployment
-if preserving a long-running experiment matters.
-
-## Interpreting results
-
-Paper PnL is evidence about a model, not proof of executable profit. The fast
-lane is especially sensitive to network latency, queue position, partial fills,
-oracle timing, and geographic/platform eligibility. A future real-money phase
-would require a separate authorization and a forward paper sample large enough
-to report results by strategy, entry timing, and market regime.

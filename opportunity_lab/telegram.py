@@ -19,13 +19,19 @@ class Telegram:
         if not self.enabled:
             return None
         data = urllib.parse.urlencode(params).encode()
-        with urllib.request.urlopen(f"{self.api}/{method}", data=data, timeout=40) as raw:
+        with urllib.request.urlopen(f"{self.api}/{method}", data=data, timeout=30) as raw:
             return json.loads(raw.read())
 
     def send(self, text: str):
         return self.call("sendMessage", chat_id=self.chat_id, text=text[:4000])
 
+    def keep_status_command_only(self):
+        commands = json.dumps(
+            [{"command": "status", "description": "Show bot status"}],
+            separators=(",", ":"),
+        )
+        return self.call("setMyCommands", commands=commands)
+
     def updates(self, offset: int, timeout: int = 20):
         response = self.call("getUpdates", offset=offset, timeout=timeout)
         return [] if response is None else response.get("result", [])
-

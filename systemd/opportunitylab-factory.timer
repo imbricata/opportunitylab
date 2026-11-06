@@ -1,0 +1,10 @@
+[Unit]
+Description=Run Opportunity Lab factory every 15 minutes
+
+[Timer]
+OnCalendar=*-*-* *:02,17,32,47:20 UTC
+RandomizedDelaySec=10
+Persistent=true
+
+[Install]
+WantedBy=timers.target
